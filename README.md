@@ -14,6 +14,16 @@ Recruiting teams often receive heterogeneous candidate payloads from forms, emai
 
 This project models that decision pipeline end-to-end.
 
+## Solution Scope
+
+This MVP focuses on the `screening orchestration layer`, not on claiming a fully productionized ATS. The repository is structured to demonstrate:
+
+- canonical intake normalization for heterogeneous candidate payloads;
+- model-assisted triage with explicit routing states;
+- `human-in-the-loop` control points for recruiter override;
+- event persistence for traceability and downstream analytics;
+- a separation between orchestration, scoring, and inspection concerns.
+
 ## System Architecture
 
 ```mermaid
@@ -38,6 +48,35 @@ flowchart LR
 - reproducible screening baseline in [src/pipeline.py](src/pipeline.py)
 - technical inspection UI in [app.py](app.py)
 - automated validation in [tests/test_pipeline.py](tests/test_pipeline.py)
+
+## Execution Model
+
+The project is intentionally split into two execution surfaces:
+
+### 1. Native n8n workflow
+
+The `n8n` workflow acts as the orchestration layer and is responsible for:
+
+- ingress through `Webhook Trigger`;
+- canonical field preparation;
+- external service invocation;
+- conditional branching;
+- recruiter notification;
+- candidate notification;
+- operational persistence;
+- synchronous webhook response.
+
+### 2. Python baseline
+
+The Python layer acts as a deterministic reference implementation for:
+
+- synthetic dataset generation;
+- feature engineering;
+- decision classification;
+- artifact generation;
+- technical inspection through `Streamlit`.
+
+This split makes the repository easier to evaluate technically because the orchestration logic and the analytical logic can be inspected independently.
 
 ## Technical Stack
 
@@ -64,6 +103,41 @@ flowchart LR
 
 - `Streamlit` for technical walkthrough and reviewer-facing inspection
 - `Plotly` for decision distribution visualization
+
+## Integration Contract
+
+The workflow is designed as if it were sitting between an upstream application source and downstream recruiting systems.
+
+### Inbound payload contract
+
+The webhook-facing contract assumes candidate events can provide fields such as:
+
+- `candidate_id`
+- `name`
+- `email`
+- `resume_summary`
+- `skills`
+- `years_experience`
+- `current_location`
+- `target_job_id`
+
+### Outbound response contract
+
+The `Respond to Webhook` node returns a normalized JSON object that can be consumed by:
+
+- an ATS adapter;
+- a recruiting portal;
+- an internal API gateway;
+- observability middleware.
+
+The response body includes:
+
+- `candidate_id`
+- `target_job_id`
+- `predicted_decision`
+- `advance_probability`
+- `requires_human_review`
+- `recommended_next_step`
 
 ## Data Model
 
@@ -108,6 +182,26 @@ The baseline enriches each candidate with:
 - `requires_human_review`
 - `candidate_summary`
 
+## Persistence Layer
+
+The workflow models an operational sink in `Postgres` through the `Persist Screening Log` node. In production terms, this node behaves as a lightweight `screening event store`.
+
+The persisted tuple currently includes:
+
+- `candidate_id`
+- `target_job_id`
+- `predicted_decision`
+- `advance_probability`
+- `requires_human_review`
+
+This persistence pattern is useful for:
+
+- auditability;
+- recruiter analytics;
+- threshold tuning;
+- downstream SLA monitoring;
+- supervised feedback collection.
+
 ## Decisioning Logic
 
 ### 1. Feature engineering
@@ -133,6 +227,8 @@ resume_summary + skills + target job title + required skills + preferred skills
 
 This representation is encoded with `TfidfVectorizer(ngram_range=(1, 2))`, allowing the model to capture unigrams and bigrams from both resume semantics and job context.
 
+From an information retrieval perspective, this is a sparse lexical baseline that approximates candidate-to-role semantic alignment without introducing embedding infrastructure.
+
 ### 3. Multi-class screening model
 
 `LogisticRegression(class_weight="balanced", max_iter=2000)` is trained to predict:
@@ -142,6 +238,13 @@ This representation is encoded with `TfidfVectorizer(ngram_range=(1, 2))`, allow
 - `reject`
 
 The classifier is intentionally lightweight so the repository demonstrates the control-plane design of the workflow rather than claiming production-grade model performance.
+
+Even so, the choice is technically reasonable for an MVP because:
+
+- it is fast to train and interpret;
+- it supports probabilistic output;
+- it works well with sparse `TF-IDF` vectors;
+- it creates a clean stepping stone toward later model-serving endpoints.
 
 ### 4. Human-in-the-loop routing
 
@@ -155,6 +258,8 @@ The baseline routes both `advance` and `review` outcomes into the recruiter appr
   Rejection is automatically templated and logged in the MVP.
 
 This decision boundary is encoded through `requires_human_review`.
+
+Operationally, this means the workflow is optimized for `high-recall recruiter review` rather than aggressive automation. That is a safer default in recruiting contexts, where false negatives are usually more expensive than false positives in the early funnel.
 
 ## n8n Workflow Semantics
 
@@ -178,6 +283,44 @@ The exported workflow is designed as an event-driven screening orchestration:
    Stores the screening event in an operational log table.
 9. `Respond to Webhook`
    Returns a structured API response to the caller.
+
+## Node-Level Technical Interpretation
+
+### `Webhook Trigger`
+
+Acts as the ingestion boundary and models an event-driven recruiting interface.
+
+### `Normalize Candidate`
+
+Represents payload canonicalization. In a production workflow, this is where schema harmonization, null-handling, and field coercion would happen.
+
+### `Score Candidate`
+
+Abstracts the model-serving boundary. In production, this node would typically call a `FastAPI`, serverless, or internal inference endpoint.
+
+### `Retrieve Job Guide`
+
+Represents retrieval augmentation for recruiter-specific context, such as role guides, interview rubrics, or hiring policies.
+
+### `Needs Recruiter Review?`
+
+Implements the primary decision gate. This is the explicit `HITL` control node of the workflow.
+
+### `Send Recruiter Approval`
+
+Models escalation to a human approver via collaboration tooling such as Slack or Teams.
+
+### `Send Candidate Update`
+
+Represents the automated communication branch of the workflow.
+
+### `Persist Screening Log`
+
+Acts as the operational write path for observability and downstream analytics.
+
+### `Respond to Webhook`
+
+Closes the synchronous request lifecycle with a normalized API response.
 
 ## Native n8n Interface
 
@@ -206,6 +349,24 @@ manual_review_queue: 5
 - the goal is to validate workflow semantics, decision routing, and HITL integration;
 - the results should not be interpreted as production benchmark quality.
 
+## Evaluation Notes
+
+The current evaluation is intentionally lightweight. The repository validates that:
+
+- the feature engineering pipeline is stable;
+- the classifier produces deterministic routing outputs;
+- the recruiter-review queue is populated according to policy;
+- the processed artifacts are persisted correctly.
+
+For a production version, the evaluation stack should expand to include:
+
+- `train / validation / test` segregation;
+- calibration analysis for screening probabilities;
+- `precision@k` for shortlist quality;
+- false-negative analysis for rejected candidates;
+- fairness diagnostics across protected or proxy attributes;
+- recruiter override agreement metrics.
+
 ## Streamlit Interface
 
 The `Streamlit` layer exposes four technical views:
@@ -233,6 +394,19 @@ The `Streamlit` layer exposes four technical views:
 - baseline metrics table
 - technical note on evaluation scope
 - production evaluation recommendations
+
+## Operational Considerations
+
+From an engineering perspective, the next production-hardening steps would likely include:
+
+- idempotency keys for webhook ingestion;
+- retry policies for Slack, Gmail, and persistence connectors;
+- dead-letter handling for failed notifications;
+- structured logs and correlation IDs;
+- versioned model endpoints;
+- schema validation at ingress;
+- PII handling, redaction, and access control;
+- ATS synchronization and state reconciliation.
 
 ## Repository Structure
 
@@ -290,6 +464,15 @@ Recommended next steps for a more realistic recruiting platform:
 - calibration and threshold tuning for `advance` routing
 - fairness and bias monitoring
 - model serving behind `FastAPI` or equivalent
+
+## Technical Positioning
+
+This repository should be read as a `workflow-centric recruiting automation MVP` that demonstrates:
+
+- event-driven orchestration in `n8n`;
+- deterministic analytical baselines in Python;
+- explicit human approval checkpoints;
+- a clean handoff pattern between low-code automation and ML-assisted decisioning.
 
 ## Why This Project Is Useful In A Portfolio
 
