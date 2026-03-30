@@ -179,6 +179,12 @@ The exported workflow is designed as an event-driven screening orchestration:
 9. `Respond to Webhook`
    Returns a structured API response to the caller.
 
+## Native n8n Interface
+
+The workflow can also be inspected directly in the native `n8n` editor, which makes the orchestration logic, routing branches, and integration nodes easier to audit visually.
+
+![Candidate screening workflow in n8n](assets/n8n_candidate.jpg)
+
 ## Current Demo Results
 
 Current output from [main.py](main.py):
