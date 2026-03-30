@@ -132,7 +132,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO candidate_screening_log(candidate_id, target_job_id, predicted_decision, advance_probability, requires_human_review) VALUES ({{$json.candidate_id}}, {{$json.target_job_id}}, {{$json.predicted_decision}}, {{$json.advance_probability}}, {{$json.requires_human_review}})"
+        "query": "INSERT INTO candidate_screening_log(candidate_id, target_job_id, predicted_decision, advance_probability, requires_human_review) VALUES ('{{$json.candidate_id}}', '{{$json.target_job_id}}', '{{$json.predicted_decision}}', {{$json.advance_probability}}, {{$json.requires_human_review}})"
       },
       "id": "PersistScreeningLog",
       "name": "Persist Screening Log",
@@ -143,7 +143,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{{\n+  \"candidate_id\": $json.candidate_id,\n+  \"target_job_id\": $json.target_job_id,\n+  \"predicted_decision\": $json.predicted_decision,\n+  \"advance_probability\": $json.advance_probability,\n+  \"requires_human_review\": $json.requires_human_review,\n+  \"recommended_next_step\": $json.recommended_next_step\n+}}}",
+        "responseBody": "={{ { \"candidate_id\": $json.candidate_id, \"target_job_id\": $json.target_job_id, \"predicted_decision\": $json.predicted_decision, \"advance_probability\": $json.advance_probability, \"requires_human_review\": $json.requires_human_review, \"recommended_next_step\": $json.recommended_next_step } }}",
         "options": {}
       },
       "id": "RespondToWebhook",
