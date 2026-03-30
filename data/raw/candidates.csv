@@ -1,0 +1,7 @@
+candidate_id,name,source,years_experience,current_location,resume_summary,skills,target_job_id,ground_truth_decision
+C001,Ana Martins,linkedin,6,remote,"Python engineer with experience in LLM applications, RAG, APIs, SQL and Streamlit dashboards. Worked on evaluation and workflow automation.","python,llm,rag,api,sql,streamlit,evaluation,n8n",J001,advance
+C002,Bruno Silva,referral,4,hybrid,"Data engineer focused on Spark, ETL, Airflow and SQL. Some exposure to cloud platforms and dashboards.","python,spark,sql,etl,airflow,cloud",J002,advance
+C003,Carla Nunes,email,2,remote,"Junior backend developer with Python, REST APIs and some machine learning coursework. Limited production exposure.","python,api,ml,git",J001,review
+C004,Diego Costa,linkedin,7,onsite,"Senior product manager with experience in roadmap planning, analytics and stakeholder management.","product,analytics,communication,roadmap",J001,reject
+C005,Elisa Rocha,referral,5,hybrid,"Engineer with Databricks, dbt, SQL, Python and some Kafka usage in data platforms.","python,sql,databricks,dbt,etl,cloud,kafka",J002,advance
+C006,Felipe Gomes,web_form,3,remote,"Automation specialist using n8n, APIs, CRM integrations, low-code tools and operational workflows.","n8n,api,automation,crm,webhooks",J001,review

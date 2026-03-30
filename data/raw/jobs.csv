@@ -1,0 +1,3 @@
+job_id,title,seniority,location,required_skills,preferred_skills,description
+J001,Applied AI Engineer,mid,remote,"python,llm,rag,api,sql,mlops","langchain,n8n,streamlit,vector-db,fastapi","Build AI applications with Python, LLM orchestration, retrieval pipelines, API integration and MLOps practices."
+J002,Data Engineer,mid,hybrid,"python,spark,sql,etl,airflow,cloud","dbt,databricks,kafka,terraform","Design data pipelines, orchestrate ETL jobs and manage scalable analytics platforms."

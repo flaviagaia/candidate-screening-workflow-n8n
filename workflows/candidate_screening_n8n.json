@@ -1,0 +1,178 @@
+{
+  "id": "candidate-screening-demo",
+  "name": "Candidate Screening Workflow",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "candidate-intake",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "id": "WebhookTrigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [120, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "candidate_payload",
+              "name": "candidate_payload",
+              "value": "={{$json.resume_summary + ' skills ' + $json.skills}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "NormalizeCandidate",
+      "name": "Normalize Candidate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [340, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://example.internal/screen-candidate",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "candidate_payload",
+              "value": "={{$json.candidate_payload}}"
+            },
+            {
+              "name": "target_job_id",
+              "value": "={{$json.target_job_id}}"
+            }
+          ]
+        }
+      },
+      "id": "ScoreCandidate",
+      "name": "Score Candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [570, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://example.internal/recruiting-kb",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{$json.target_job_id}}"
+            }
+          ]
+        }
+      },
+      "id": "RetrieveJobGuide",
+      "name": "Retrieve Job Guide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.requires_human_review}}",
+              "rightValue": "1",
+              "operator": {
+                "type": "number",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "NeedsRecruiterReview",
+      "name": "Needs Recruiter Review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1030, 300]
+    },
+    {
+      "parameters": {
+        "channel": "recruiting-approvals",
+        "text": "={{'Candidate ' + $json.name + ' requires recruiter review for ' + $json.target_job_id}}"
+      },
+      "id": "SendRecruiterApproval",
+      "name": "Send Recruiter Approval",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1260, 220]
+    },
+    {
+      "parameters": {
+        "to": "={{$json.email}}",
+        "subject": "={{'Application update for ' + $json.target_job_id}}",
+        "message": "={{$json.recommended_next_step}}"
+      },
+      "id": "SendCandidateUpdate",
+      "name": "Send Candidate Update",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1260, 380]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO candidate_screening_log(candidate_id, target_job_id, predicted_decision, advance_probability, requires_human_review) VALUES ({{$json.candidate_id}}, {{$json.target_job_id}}, {{$json.predicted_decision}}, {{$json.advance_probability}}, {{$json.requires_human_review}})"
+      },
+      "id": "PersistScreeningLog",
+      "name": "Persist Screening Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1490, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{{\n+  \"candidate_id\": $json.candidate_id,\n+  \"target_job_id\": $json.target_job_id,\n+  \"predicted_decision\": $json.predicted_decision,\n+  \"advance_probability\": $json.advance_probability,\n+  \"requires_human_review\": $json.requires_human_review,\n+  \"recommended_next_step\": $json.recommended_next_step\n+}}}",
+        "options": {}
+      },
+      "id": "RespondToWebhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1720, 300]
+    }
+  ],
+  "pinData": {},
+  "versionId": "1",
+  "meta": null,
+  "tags": [],
+  "connections": {
+    "Webhook Trigger": {"main": [[{"node": "Normalize Candidate", "type": "main", "index": 0}]]},
+    "Normalize Candidate": {"main": [[{"node": "Score Candidate", "type": "main", "index": 0}]]},
+    "Score Candidate": {"main": [[{"node": "Retrieve Job Guide", "type": "main", "index": 0}]]},
+    "Retrieve Job Guide": {"main": [[{"node": "Needs Recruiter Review?", "type": "main", "index": 0}]]},
+    "Needs Recruiter Review?": {
+      "main": [
+        [{"node": "Send Recruiter Approval", "type": "main", "index": 0}],
+        [{"node": "Send Candidate Update", "type": "main", "index": 0}]
+      ]
+    },
+    "Send Recruiter Approval": {"main": [[{"node": "Persist Screening Log", "type": "main", "index": 0}]]},
+    "Send Candidate Update": {"main": [[{"node": "Persist Screening Log", "type": "main", "index": 0}]]},
+    "Persist Screening Log": {"main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
